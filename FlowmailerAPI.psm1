@@ -169,14 +169,26 @@ Function Get-MessagesBySenderPage ([FlowmailerAPI]$api, [string]$sender, $startD
   return $response, $next_range
 }
 
-Function Get-MessagesBySender ([FlowmailerAPI]$api, [string]$sender, $startDate, $endDate) {
+# https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_cmdletbindingattribute?view=powershell-7.3
+# https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters?view=powershell-7.3
+
+Function Get-MessagesBySender {
+
+  [CmdletBinding(SupportsPaging)]
+
+  Param (
+    [FlowmailerAPI] $Api,
+    [string] $Sender,
+    [DateTime] $StartDate,
+    [DateTime] $EndDate
+  )
 
   $range = ":10"
 
   while($range) {
-    Write-Host "Get Page", $range
+    Write-Debug ("Get Page: " + $range)
 
-    $list, $next_range = Get-MessagesBySenderPage $api $sender $startDate $endDate $range
+    $list, $next_range = Get-MessagesBySenderPage $Api $Sender $StartDate $EndDate $Range
 
   #  Write-Host $next_range
   #  Write-Host ($list | ConvertTo-Json -Depth 100)
