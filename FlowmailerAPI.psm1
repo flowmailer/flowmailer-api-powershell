@@ -13,12 +13,24 @@ Class FlowmailerAPI
 }
 
 Function New-FlowmailerAPI {
-  [FlowmailerAPI]@{
-    ClientId = $client_id
-    ClientSecret = $client_secret
 
-    LoginUrl = "https://login.flowmailer.net/oauth/token"
-    ApiUrl = "https://api.flowmailer.net"
+  [CmdletBinding(SupportsPaging)]
+
+  Param (
+    [ValidateNotNullOrEmpty()][string] $ClientId,
+    [ValidateNotNullOrEmpty()][string] $ClientSecret,
+    [ValidateNotNullOrEmpty()][string] $AccountId,
+    [string] $LoginUrl = "https://login.flowmailer.net",
+    [string] $ApiUrl = "http://api.flowmailer.net"
+  )
+
+  [FlowmailerAPI]@{
+    ClientId = $ClientId
+    ClientSecret = $ClientSecret
+    AccountId = $AccountId
+
+    LoginUrl = $LoginUrl
+    ApiUrl = $ApiUrl
   }
 }
 
@@ -92,7 +104,19 @@ Function Invoke-FlowmailerAPI ([FlowmailerAPI]$api, [String]$Url, [System.Collec
 }
 
 # https://flowmailer.com/apidoc/flowmailer-api.html#get_account_id_recipient_recipient_messages
-Function Get-MessagesByRecipientPage ([FlowmailerAPI]$api, [string]$recipient, $startDate, $endDate, [string]$range) {
+Function Get-MessagesByRecipientPage {
+
+  [CmdletBinding(SupportsPaging)]
+
+  Param (
+    [ValidateNotNullOrEmpty()][FlowmailerAPI] $Api,
+    [ValidateNotNullOrEmpty()][string] $Recipient,
+    [DateTime] $StartDate,
+    [DateTime] $EndDate,
+    [String] $Range
+  )
+
+  #Write-Debug ("Get Recipient Page: " + $range + " params: " + ($PSBoundParameters | ConvertTo-Json))
 
   $headers = @{
     "Range" = "items=" + $range
@@ -113,24 +137,30 @@ Function Get-MessagesByRecipientPage ([FlowmailerAPI]$api, [string]$recipient, $
     }
   }
 
-  $response, $response_headers = Invoke-FlowmailerAPI $api ($api.AccountId + "/recipient/" + $recipient + "/messages" + $matrixParams) $headers
+  $response, $response_headers = Invoke-FlowmailerAPI $Api ($Api.AccountId + "/recipient/" + $Recipient + "/messages" + $matrixParams) $headers
 
   $next_range = if($response_headers['Next-Range']) { $response_headers['Next-Range'].split('=')[1] }
 
   return $response, $next_range
 }
 
-Function Get-MessagesByRecipient ([FlowmailerAPI]$api, [string]$recipient, $startDate, $endDate) {
+Function Get-MessagesByRecipient {
+
+  [CmdletBinding(SupportsPaging)]
+
+  Param (
+    [ValidateNotNullOrEmpty()][FlowmailerAPI] $Api,
+    [ValidateNotNullOrEmpty()][string] $Recipient,
+    [DateTime] $StartDate,
+    [DateTime] $EndDate
+  )
 
   $range = ":10"
 
   while($range) {
-    Write-Host "Get Page", $range
+    Write-Debug ("Get Recipient Page: " + $range)
 
-    $list, $next_range = Get-MessagesByRecipientPage $api $recipient $startDate $endDate $range
-
-  #  Write-Host $next_range
-  #  Write-Host ($list | ConvertTo-Json -Depth 100)
+    $list, $next_range = Get-MessagesByRecipientPage @PSBoundParameters -Range $range
 
     foreach ($message in $list) {
       Write-Output $message
@@ -141,7 +171,19 @@ Function Get-MessagesByRecipient ([FlowmailerAPI]$api, [string]$recipient, $star
 }
 
 # https://flowmailer.com/apidoc/flowmailer-api.html#get_account_id_sender_sender_messages
-Function Get-MessagesBySenderPage ([FlowmailerAPI]$api, [string]$sender, $startDate, $endDate, [string]$range) {
+Function Get-MessagesBySenderPage {
+
+  [CmdletBinding(SupportsPaging)]
+
+  Param (
+    [ValidateNotNullOrEmpty()][FlowmailerAPI] $Api,
+    [ValidateNotNullOrEmpty()][string] $Sender,
+    [DateTime] $StartDate,
+    [DateTime] $EndDate,
+    [String] $Range
+  )
+
+  #Write-Debug ("Get Sender Page: " + $range + " params: " + ($PSBoundParameters | ConvertTo-Json))
 
   $headers = @{
     "Range" = "items=" + $range
@@ -162,7 +204,7 @@ Function Get-MessagesBySenderPage ([FlowmailerAPI]$api, [string]$sender, $startD
     }
   }
 
-  $response, $response_headers = Invoke-FlowmailerAPI $api ($api.AccountId + "/sender/" + $sender + "/messages" + $matrixParams) $headers
+  $response, $response_headers = Invoke-FlowmailerAPI $Api ($Api.AccountId + "/sender/" + $Sender + "/messages" + $matrixParams) $headers
 
   $next_range = if($response_headers['Next-Range']) { $response_headers['Next-Range'].split('=')[1] }
 
@@ -177,8 +219,8 @@ Function Get-MessagesBySender {
   [CmdletBinding(SupportsPaging)]
 
   Param (
-    [FlowmailerAPI] $Api,
-    [string] $Sender,
+    [ValidateNotNullOrEmpty()][FlowmailerAPI] $Api,
+    [ValidateNotNullOrEmpty()][string] $Sender,
     [DateTime] $StartDate,
     [DateTime] $EndDate
   )
@@ -186,9 +228,9 @@ Function Get-MessagesBySender {
   $range = ":10"
 
   while($range) {
-    Write-Debug ("Get Page: " + $range)
+    Write-Debug ("Get Sender Page: " + $range)
 
-    $list, $next_range = Get-MessagesBySenderPage $Api $Sender $StartDate $EndDate $Range
+    $list, $next_range = Get-MessagesBySenderPage @PSBoundParameters -Range $range
 
   #  Write-Host $next_range
   #  Write-Host ($list | ConvertTo-Json -Depth 100)
@@ -201,4 +243,75 @@ Function Get-MessagesBySender {
   }
 }
 
-Export-ModuleMember -Function New-FlowmailerAPI,Get-AccessToken,Get-MessagesByRecipient,Get-MessagesBySender
+Function Get-Messages {
+
+  [CmdletBinding(SupportsPaging)]
+
+  Param (
+    [ValidateNotNullOrEmpty()][FlowmailerAPI] $Api,
+    [string] $Sender,
+    [string] $Recipient,
+    [DateTime] $StartDate,
+    [DateTime] $EndDate
+  )
+
+  if($Sender -and -not $Recipient) {
+    return Get-MessagesBySender @PSBoundParameters
+  }
+  if($Recipient -and -not $Sender) {
+    return Get-MessagesByRecipient @PSBoundParameters
+  }
+
+  $range = ":10"
+
+  $searchPrio = 'Recipient'
+  #$searchPrio = 'Sender'
+
+  while($range) {
+    Write-Debug ("Get " + $searchPrio + " Page: " + $range)
+
+    #Write-Debug ("" + ($PSBoundParameters | ConvertTo-Json))
+    $params = @{} + $PSBoundParameters
+
+    #return
+
+    if($searchPrio -eq 'Sender') {
+      $params.Remove('Recipient')
+      #Write-Debug ("" + ($params | ConvertTo-Json))
+
+      $list, $next_range = Get-MessagesBySenderPage @params -Range $range
+      if(-not $list) {
+        break
+      }
+
+      $list = $list | Where-Object { $_.recipientAddress -eq $Recipient }
+
+      if(-not $list) {
+        $searchPrio = 'Recipient'
+      }
+
+    } elseif($searchPrio -eq 'Recipient') {
+      $params.Remove('Sender')
+      #Write-Debug ("" + ($params | ConvertTo-Json))
+
+      $list, $next_range = Get-MessagesByRecipientPage @params -Range $range
+      if(-not $list) {
+        break
+      }
+
+      $list = $list | Where-Object { $_.senderAddress -eq $Sender }
+
+      if(-not $list) {
+        $searchPrio = 'Sender'
+      }
+    }
+
+    foreach ($message in $list) {
+      Write-Output $message
+    }
+
+    $range = $next_range;
+  }
+}
+
+Export-ModuleMember -Function New-FlowmailerAPI,Get-AccessToken,Get-MessagesByRecipient,Get-MessagesBySender,Get-Messages
