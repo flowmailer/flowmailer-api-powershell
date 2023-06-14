@@ -155,7 +155,7 @@ Function Get-MessagesByRecipient {
     [DateTime] $EndDate
   )
 
-  $range = ":10"
+  $range = ":1000"
 
   while($range) {
     Write-Debug ("Get Recipient Page: " + $range)
@@ -225,7 +225,7 @@ Function Get-MessagesBySender {
     [DateTime] $EndDate
   )
 
-  $range = ":10"
+  $range = ":1000"
 
   while($range) {
     Write-Debug ("Get Sender Page: " + $range)
@@ -262,7 +262,7 @@ Function Get-Messages {
     return Get-MessagesByRecipient @PSBoundParameters
   }
 
-  $range = ":10"
+  $range = ":1000"
 
   $searchPrio = 'Recipient'
   #$searchPrio = 'Sender'

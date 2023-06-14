@@ -19,6 +19,6 @@ Get-MessagesBySender $Api -Sender "casper@caspermout.nl" -StartDate $startDate -
   | Where-Object { $_.subject -ne 'test' }
   | ForEach-Object -Process { $_.id }
 
-Get-Messages $Api -Sender "casper@caspermout.nl" -Recipient "casper@flowmailer.com" # -Debug
+Get-Messages $Api -Sender "casper@caspermout.nl" -Recipient "casper@flowmailer.com" -StartDate $startDate -EndDate $endDate # -Debug
   | Where-Object { $_.subject -ne 'test' }
   | ForEach-Object -Process { $_.id }
