@@ -9,5 +9,10 @@ https://fedoramagazine.org/install-powershell-on-fedora-linux/
 
 # Run test on linux
 ```
-pwsh test.ps1  
+pwsh test.ps1
+```
+
+# Run test on Windows
+```
+powershell.exe -File test.ps1
 ```
