@@ -1,4 +1,9 @@
 
-$client_id = "aaaa";
-$client_secret = "bbb";
-$account_id = "123";
+$ApiConfig = @{
+  ClientId = "aaaa"
+  ClientSecret = "bbb"
+  AccountId = "123"
+
+#  LoginUrl = "https://login.flowmailer.net"
+#  ApiUrl = "http://api.flowmailer.net"
+}

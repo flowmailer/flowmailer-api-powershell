@@ -76,7 +76,7 @@ Function Refresh-AccessToken ([FlowmailerAPI]$Api) {
   $Api.AccessToken = $Token
 }
 
-Function Invoke-FlowmailerAPI ([FlowmailerAPI]$Api, [Microsoft.PowerShell.Commands.WebRequestMethod]$Method, [String]$Url, [System.Collections.Hashtable]$extra_headers = @{}, [Int]$tries = 3) {
+Function Invoke-FlowmailerAPI ([FlowmailerAPI]$Api, [Microsoft.PowerShell.Commands.WebRequestMethod]$Method, [String]$Url, [System.Collections.Hashtable]$extra_headers = @{}, [System.Collections.Hashtable]$Body = $null, [Int]$tries = 3) {
 
   if($Api.AccessToken -eq "") {
     Refresh-AccessToken $Api
@@ -99,7 +99,12 @@ Function Invoke-FlowmailerAPI ([FlowmailerAPI]$Api, [Microsoft.PowerShell.Comman
 #  Write-Host $tries
 #  Write-Host ($headers | ConvertTo-Json)
 
-  $response = Invoke-RestMethod -Uri ($Api.ApiUrl + "/" + $url) -Method $Method -Headers $headers -SkipHeaderValidation -ResponseHeadersVariable response_headers -StatusCodeVariable response_status -SkipHttpErrorCheck
+  $BodyString = $null;
+  if ($null -ne $Body) {
+    $BodyString = ($Body | ConvertTo-JSON)
+  }
+
+  $response = Invoke-RestMethod -Uri ($Api.ApiUrl + "/" + $url) -Method $Method -Headers $headers -Body $BodyString -SkipHeaderValidation -ResponseHeadersVariable response_headers -StatusCodeVariable response_status -SkipHttpErrorCheck
 
   if ($response_status -eq "401") {
     if($tries -lt 0) {
@@ -108,11 +113,11 @@ Function Invoke-FlowmailerAPI ([FlowmailerAPI]$Api, [Microsoft.PowerShell.Comman
     $api.AccessToken = ""
     #Refresh-AccessToken $api
     $tries = $tries - 1
-    return Invoke-FlowmailerAPI $api Get $url $extra_headers $tries
+    return Invoke-FlowmailerAPI $api Get $url $extra_headers $Body $tries
   }
 
-  if ($response_status -ne "200" -and $response_status -ne "206") {
-    Throw ("HTTP Error " + $response_status + ": " + $response)
+  if ($response_status -ne "200" -and $response_status -ne "201" -and $response_status -ne "206") {
+    Throw ("HTTP Error " + $response_status + ": " + ($response | ConvertTo-Json))
   }
 
   return $response, $response_headers
@@ -409,4 +414,28 @@ Function Resume-Message {
   $response, $response_headers = Invoke-FlowmailerAPI $Api Post ($Api.AccountId + "/messages/" + $MessageId + "/resume")
 }
 
-Export-ModuleMember -Function New-FlowmailerAPI,Get-AccessToken,Get-MessagesByRecipient,Get-MessagesBySender,Get-Messages,Get-MessageHolds,Resume-Message
+# https://flowmailer.com/apidoc/flowmailer-api.html#post_account_id_messages_submit
+Function Submit-Message {
+
+  [CmdletBinding()]
+
+  Param (
+    [ValidateNotNullOrEmpty()][FlowmailerAPI] $Api,
+    [string] $Sender,
+    [string] $Recipient,
+    [string] $Subject,
+    [string] $Text
+  )
+
+  $SubmitMessage = @{
+    messageType = "EMAIL"
+    senderAddress = $Sender
+    recipientAddress = $Recipient
+    subject = $Subject
+    text = $Text
+  }
+
+  $response, $response_headers = Invoke-FlowmailerAPI $Api Post ($Api.AccountId + "/messages/submit") -Body $SubmitMessage
+}
+
+Export-ModuleMember -Function New-FlowmailerAPI,Get-AccessToken,Get-MessagesByRecipient,Get-MessagesBySender,Get-Messages,Get-MessageHolds,Resume-Message,Submit-Message
