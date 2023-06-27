@@ -1,7 +1,6 @@
 
 Class FlowmailerAPI
 {
-    # Optionally, add attributes to prevent invalid values
     [ValidateNotNullOrEmpty()][string]$ClientId
     [ValidateNotNullOrEmpty()][string]$ClientSecret
     [ValidateNotNullOrEmpty()][string]$AccountId
@@ -9,6 +8,7 @@ Class FlowmailerAPI
     [ValidateNotNullOrEmpty()][string]$LoginUrl
     [ValidateNotNullOrEmpty()][string]$ApiUrl
     [ValidateNotNullOrEmpty()][string]$OAuthTokenUrl
+    [ValidateNotNullOrEmpty()][string]$Scope
 
     [string]$AccessToken = ""
 }
@@ -23,7 +23,8 @@ Function New-FlowmailerAPI {
     [ValidateNotNullOrEmpty()][string] $AccountId,
     [string] $LoginUrl = "https://login.flowmailer.net",
     [string] $ApiUrl = "http://api.flowmailer.net",
-    [string] $OAuthTokenUrl = ""
+    [string] $OAuthTokenUrl = "",
+    [string] $Scope = "api"
   )
 
   if ($OAuthTokenUrl -eq "") {
@@ -36,8 +37,9 @@ Function New-FlowmailerAPI {
     AccountId = $AccountId
 
     LoginUrl = $LoginUrl
-    OAuthTokenUrl = $OAuthTokenUrl
     ApiUrl = $ApiUrl
+    OAuthTokenUrl = $OAuthTokenUrl
+    Scope = $Scope
   }
 }
 
@@ -47,7 +49,7 @@ Function Get-AccessToken ([FlowmailerAPI]$api) {
       client_id = $api.ClientId
       client_secret = $api.ClientSecret
       grant_type = "client_credentials"
-      scope = "api"
+      scope = $api.Scope
   };
 
   $headers = @{
@@ -56,13 +58,13 @@ Function Get-AccessToken ([FlowmailerAPI]$api) {
   }
 
   Write-Verbose $api.OAuthTokenUrl
-  Write-Verbose $credentials
-  Write-Verbose $headers
+  Write-Verbose ($credentials | ConvertTo-JSON )
+  Write-Verbose ($headers | ConvertTo-JSON )
 
   $response = Invoke-RestMethod -Uri $api.OAuthTokenUrl -Method Post -Body $credentials -Headers $headers -StatusCodeVariable response_status -SkipHttpErrorCheck
 
-  Write-Verbose $response_status
-  Write-Verbose $response
+  Write-Verbose ($response_status | ConvertTo-JSON )
+  Write-Verbose ($response | ConvertTo-JSON )
 
   if ($response_status -ne "200") {
     throw "Get-AccessToken " + $response_status + ": " + $response
@@ -107,12 +109,15 @@ Function Invoke-FlowmailerAPI ([FlowmailerAPI]$Api, [Microsoft.PowerShell.Comman
   $response = Invoke-RestMethod -Uri ($Api.ApiUrl + "/" + $url) -Method $Method -Headers $headers -Body $BodyString -SkipHeaderValidation -ResponseHeadersVariable response_headers -StatusCodeVariable response_status -SkipHttpErrorCheck
 
   if ($response_status -eq "401") {
+    Write-Verbose ($response_status | ConvertTo-JSON )
+    Write-Verbose ($response | ConvertTo-JSON )
     if($tries -lt 0) {
-      return 1, -1
+      Throw ("API call failed " + $response_status + ": " + ($response | ConvertTo-JSON ))
     }
     $api.AccessToken = ""
     #Refresh-AccessToken $api
     $tries = $tries - 1
+    Write-Verbose ("Retry tries left: " + $tries)
     return Invoke-FlowmailerAPI $api Get $url $extra_headers $Body $tries
   }
 
